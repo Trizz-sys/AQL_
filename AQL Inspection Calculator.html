@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AQL Inspection Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef1f5;--card:#fff;--ink:#14213d;--mut:#667085;--navy:#0b2a55;--acc:#1d4ed8;--line:#dde3ec;--ok:#0f7b45;--okbg:#e3f6ec;--bad:#b42318;--badbg:#fde8e6;--warn:#8a5a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1420;--card:#16202f;--ink:#e8edf5;--mut:#98a4b8;--navy:#9db8ee;--acc:#5b8cff;--line:#2a374a;--ok:#4cc38a;--okbg:#12301f;--bad:#ff8a7a;--badbg:#3a1a17;--warn:#f5c26b;--warnbg:#3a2f12}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:#0b2a55;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}header small{opacity:.75;display:block;font-weight:400;margin-top:2px}
+header button{background:transparent;color:#fff;border-color:#4b6794}
+main{max-width:960px;margin:0 auto;padding:16px;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:0 0 12px}
+label{font-size:13px;color:var(--mut);display:block;margin-bottom:4px}
+input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>div{flex:1;min-width:150px}
+button{padding:11px 18px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;cursor:pointer;font-weight:600}
+button.p{background:#0b2a55;border-color:#0b2a55;color:#fff}button.p:hover{background:var(--acc)}
+.err{color:var(--bad);font-size:13px;margin-top:6px;min-height:16px}
+.cfg{display:flex;gap:8px;flex-wrap:wrap}.chip{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:13px}.chip b{color:var(--navy)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.k{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.k span{font-size:12px;color:var(--mut);display:block}.k b{font-size:22px;color:var(--navy)}
+.k.big{grid-column:span 2;background:#0b2a55;border-color:#0b2a55}.k.big span{color:#b9c8e6}.k.big b{font-size:54px;color:#fff;line-height:1.1}
+.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}th{background:var(--bg);color:var(--mut);font-size:12px;text-transform:uppercase}
+td.n{font-size:18px;font-weight:700;color:var(--navy)}td input{width:90px;padding:7px;font-size:16px}
+.st{font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}.st.ok{background:var(--okbg);color:var(--ok)}.st.bad{background:var(--badbg);color:var(--bad)}
+.final{text-align:center;font-size:30px;font-weight:800;padding:16px;border-radius:10px;margin-top:14px;background:var(--bg);color:var(--mut)}
+.final.ok{background:var(--okbg);color:var(--ok)}.final.bad{background:var(--badbg);color:var(--bad)}.final small{display:block;font-size:13px;font-weight:500}
+.warn{background:var(--warnbg);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:14px;margin-top:10px}
+.note{font-size:12px;color:var(--mut);margin-top:8px}.hide{display:none}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);max-width:420px;width:92%}
+@media print{.noprint{display:none!important}body{background:#fff}header{background:#fff;color:#000}}
+@media(max-width:560px){.k.big{grid-column:span 1}.k.big b{font-size:46px}}
+</style></head><body>
+<header><h1>AQL Inspection Calculator<small>Incoming Quality Inspection · ISO 2859-1</small></h1>
+<button id="adm" class="noprint">⚙ Pengaturan AQL</button></header>
+<main>
+<section class="card"><h2>Konfigurasi Aktif</h2>
+<div class="cfg"><span class="chip">Standar <b>ISO 2859-1</b></span><span class="chip">Level <b>General II</b></span><span class="chip">Tipe <b>Normal</b></span><span class="chip">Plan <b>Single Sampling</b></span>
+<span class="chip">Critical AQL <b id="cC"></b></span><span class="chip">Major AQL <b id="cM"></b></span><span class="chip">Minor AQL <b id="cN"></b></span></div></section>
+<section class="card noprint"><h2>Incoming Quantity</h2>
+<div class="row"><div><label for="qty">Jumlah barang masuk (pcs)</label><input id="qty" type="number" inputmode="numeric" min="2" step="1" placeholder="mis. 1000"></div>
+<button class="p" id="calc">Calculate</button><button id="reset">Reset</button></div><div class="err" id="err"></div></section>
+<section class="card hide" id="out"><h2>Hasil Sampling</h2>
+<div class="kpi"><div class="k big"><span>Sample Quantity (Code Letter)</span><b id="rS"></b></div>
+<div class="k"><span>Incoming Qty</span><b id="rQ"></b></div><div class="k"><span>Lot Size Range</span><b id="rR" style="font-size:17px"></b></div><div class="k"><span>Sample Size Code Letter</span><b id="rC"></b></div></div>
+<h2 style="margin-top:18px">Batas Defect &amp; Aktual Defect</h2>
+<div class="wrap"><table><thead><tr><th>Kategori</th><th>AQL</th><th>Sample</th><th>Ac</th><th>Re</th><th>Aktual Defect</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="warn hide" id="wn"></div>
+<div class="final" id="fin"></div>
+<div class="note" id="nt"></div>
+<div class="row noprint" style="margin-top:12px"><button class="p" id="save">Simpan ke History</button><button id="pdf">Export PDF</button><button id="xls">Export Excel</button></div>
+</section>
+<section class="card noprint"><h2>History</h2><div class="wrap"><table><thead><tr><th>Waktu</th><th>Qty</th><th>Kode</th><th>Sample</th><th>Critical</th><th>Major</th><th>Minor</th><th>Status</th></tr></thead><tbody id="hb"></tbody></table></div>
+<div style="margin-top:10px"><button id="hc">Hapus History</button></div></section>
+</main>
+<dialog id="dlg"><h2>Pengaturan AQL</h2>
+<div id="pinBox"><label>PIN Admin</label><input id="pin" type="password" inputmode="numeric"><div class="err" id="pe"></div>
+<div class="row" style="margin-top:8px"><button class="p" id="pok">Masuk</button><button class="x">Tutup</button></div><div class="note">PIN bawaan 1234. Hanya pengaman di sisi browser.</div></div>
+<div id="setBox" class="hide"><div style="display:grid;gap:10px"><div><label>Critical AQL</label><select id="sC"></select></div><div><label>Major AQL</label><select id="sM"></select></div><div><label>Minor AQL</label><select id="sN"></select></div></div>
+<div class="row" style="margin-top:12px"><button class="p" id="sv">Simpan</button><button id="df">Kembalikan Default</button><button class="x">Tutup</button></div>
+<div class="note">Nilai tersimpan permanen di browser dan tidak berubah saat kalkulasi baru. Standar, level, tipe, dan plan bersifat tetap.</div></div></dialog>
+<script>
+// ISO 2859-1 Tabel 1, kolom General Inspection Level II: batas bawah lot, batas atas lot, code letter
+const T1=[[2,8,"A"],[9,15,"B"],[16,25,"C"],[26,50,"D"],[51,90,"E"],[91,150,"F"],[151,280,"G"],[281,500,"H"],[501,1200,"J"],[1201,3200,"K"],[3201,10000,"L"],[10001,35000,"M"],[35001,150000,"N"],[150001,500000,"P"],[500001,Infinity,"Q"]];
+const LET="ABCDEFGHJKLMNPQR".split(""),SZ={A:2,B:3,C:5,D:8,E:13,F:20,G:32,H:50,J:80,K:125,L:200,M:315,N:500,P:800,Q:1250,R:2000};
+// ISO 2859-1 Tabel 2-A (Normal, Single): huruf plan 0/1 per AQL, plan Ac/Re berikutnya sesuai tabel; panah diterapkan ke plan terdekat
+const ZERO={"0.065":10,"0.10":9,"0.15":8,"0.25":7,"0.40":6,"0.65":5,"1.0":4,"1.5":3,"2.5":2,"4.0":1,"6.5":0},ACS=[0,1,2,3,5,7,10,14,21];
+function plans(a){const z=ZERO[a],r=[];ACS.forEach((ac,k)=>{const i=k==0?z:z+k+2;if(i<=15)r.push([i,ac,ac+1])});return r}
+function plan(a,ci){const p=plans(a),z=ZERO[a];let q;if(ci<=z)q=p[0];else{q=p.find(x=>x[0]==ci);if(!q){const l=p[p.length-1];q=ci>l[0]?l:(ci==z+1?p[0]:p[1])}}return{n:SZ[LET[q[0]]],ac:q[1],re:q[2],adj:q[0]!==ci}}
+const AQLS=Object.keys(ZERO).sort((a,b)=>a-b),DEF={c:"0.0",m:"1.0",n:"2.5"};
+const $=id=>document.getElementById(id),fmt=n=>n.toLocaleString("id-ID");
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let S=load("aql_cfg2",DEF),H=load("aql_hist2",[]),cur=null;
+if(!(S.c==="0.0"||ZERO[S.c]!==undefined)||ZERO[S.m]===undefined||ZERO[S.n]===undefined)S={...DEF};
+function showCfg(){$("cC").textContent=S.c;$("cM").textContent=S.m;$("cN").textContent=S.n}
+function calc(q){const t=T1.find(r=>q>=r[0]&&q<=r[1]),code=t[2],ci=LET.indexOf(code);
+ const rows=[["Critical",S.c],["Major",S.m],["Minor",S.n]].map(([c,a])=>a==="0.0"?{c,a,n:SZ[code],ac:0,re:1,adj:false}:{c,a,...plan(a,ci)});
+ return{q,code,n:SZ[code],rng:fmt(t[0])+" – "+(t[1]===Infinity?"ke atas":fmt(t[1])),rows,cfg:{...S}}}
+function render(){const o=cur;$("out").classList.remove("hide");
+ $("rQ").textContent=fmt(o.q)+" pcs";$("rR").textContent=o.rng;$("rC").textContent=o.code;$("rS").textContent=fmt(o.n);
+ const old=o.rows.map(r=>r.v);
+ $("tb").innerHTML=o.rows.map((r,i)=>`<tr><td>${r.c}</td><td>${r.a}</td><td class="n">${r.n}${r.adj?" *":""}</td><td class="n">${r.ac}</td><td class="n">${r.re}</td><td><input type="number" min="0" step="1" inputmode="numeric" data-i="${i}" value="${r.v??""}"></td><td id="s${i}"></td></tr>`).join("");
+ document.querySelectorAll("td input").forEach(e=>e.oninput=()=>{o.rows[+e.dataset.i].v=e.value===""?undefined:Math.max(0,Math.floor(+e.value));status()});
+ const adj=o.rows.some(r=>r.adj);
+ const w=$("wn");const wm=[];if(o.n>o.q)wm.push("Sample lebih besar dari lot: lakukan inspeksi 100%.");w.classList.toggle("hide",!wm.length);w.innerHTML=wm.map(x=>"⚠ "+x).join("<br>");
+ $("nt").textContent=(adj?"* Sample disesuaikan mengikuti panah pada Tabel 2-A (plan terdekat sesuai standar). ":"")+"Critical AQL 0.0 diterapkan sebagai zero tolerance (Ac 0 / Re 1). PASS jika defect ≤ Ac; FAIL jika ≥ Re.";
+ status()}
+function status(){const o=cur;let all=true,ok=true;
+ o.rows.forEach((r,i)=>{const e=$("s"+i);if(r.v===undefined){e.innerHTML="";all=false;return}
+  const p=r.v<=r.ac;if(!p)ok=false;e.innerHTML=`<span class="st ${p?"ok":"bad"}">${p?"PASS":"FAIL"}</span>`});
+ const f=$("fin");
+ if(!all&&ok||(!all&&o.rows.some(r=>r.v!==undefined&&r.v>r.ac))){}
+ const anyFail=o.rows.some(r=>r.v!==undefined&&r.v>r.ac);
+ o.status=anyFail?"FAIL":all?"PASS":"";
+ f.className="final "+(anyFail?"bad":all?"ok":"");
+ f.innerHTML=anyFail?"FAIL<small>Defect melebihi batas penerimaan (Ac)</small>":all?"PASS<small>Semua kategori dalam batas penerimaan</small>":"Menunggu input aktual defect<small>Isi jumlah defect tiap kategori</small>"}
+$("calc").onclick=()=>{const v=$("qty").value.trim();$("err").textContent="";
+ if(v===""){$("err").textContent="Quantity tidak boleh kosong.";return}
+ const q=Number(v);if(!Number.isFinite(q)||q<0){$("err").textContent="Quantity tidak boleh negatif.";return}
+ if(!Number.isInteger(q)||q<2){$("err").textContent="Masukkan bilangan bulat minimal 2 (rentang tabel dimulai dari 2 pcs).";return}
+ cur=calc(q);render()};
+$("reset").onclick=()=>{$("qty").value="";$("err").textContent="";$("out").classList.add("hide");cur=null};
+$("qty").onkeydown=e=>{if(e.key==="Enter")$("calc").click()};
+function rh(){$("hb").innerHTML=H.length?H.map(h=>`<tr><td>${h.t}</td><td>${fmt(h.q)}</td><td>${h.code}</td><td>${h.n}</td>${h.r.map(x=>`<td>${x}</td>`).join("")}<td><span class="st ${h.s==="PASS"?"ok":h.s==="FAIL"?"bad":""}">${h.s||"-"}</span></td></tr>`).join(""):`<tr><td colspan="8" style="color:var(--mut)">Belum ada riwayat.</td></tr>`}
+$("save").onclick=()=>{if(!cur)return;H.unshift({t:new Date().toLocaleString("id-ID"),q:cur.q,code:cur.code,n:cur.n,s:cur.status,r:cur.rows.map(r=>`${r.v??"-"} (${r.ac}/${r.re})`)});H=H.slice(0,100);save("aql_hist2",H);rh()};
+$("hc").onclick=()=>{H=[];save("aql_hist2",H);rh()};
+$("pdf").onclick=()=>{try{window.print()}catch(e){alert("Gunakan Ctrl/Cmd+P.")}};
+$("xls").onclick=()=>{if(!cur||typeof XLSX==="undefined"){alert("Data kosong atau library Excel gagal dimuat.");return}
+ const a=[["AQL Inspection Calculator"],["Tanggal",new Date().toLocaleString("id-ID")],["Standar","ISO 2859-1"],["Level","General II"],["Tipe","Normal / Single Sampling"],["Incoming Qty",cur.q],["Lot Size Range",cur.rng],["Code Letter",cur.code],["Sample Quantity",cur.n],[],["Kategori","AQL","Sample","Ac","Re","Aktual Defect","Status"],...cur.rows.map(r=>[r.c,r.a,r.n,r.ac,r.re,r.v??"",r.v===undefined?"":(r.v<=r.ac?"PASS":"FAIL")]),[],["Status Akhir",cur.status||"Belum lengkap"]];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),"AQL");XLSX.writeFile(wb,"AQL_"+cur.q+".xlsx")};
+// Pengaturan AQL (tersimpan, tidak berubah saat kalkulasi)
+const dlg=$("dlg");[["sC",1],["sM",0],["sN",0]].forEach(([id,z])=>$(id).innerHTML=(z?"<option>0.0</option>":"")+AQLS.map(a=>`<option>${a}</option>`).join(""));
+function fillS(){$("sC").value=S.c;$("sM").value=S.m;$("sN").value=S.n}
+$("adm").onclick=()=>{$("pinBox").classList.remove("hide");$("setBox").classList.add("hide");$("pin").value="";$("pe").textContent="";dlg.showModal()};
+$("pok").onclick=()=>{if($("pin").value==="1234"){$("pinBox").classList.add("hide");$("setBox").classList.remove("hide");fillS()}else $("pe").textContent="PIN salah."};
+document.querySelectorAll(".x").forEach(b=>b.onclick=()=>dlg.close());
+$("sv").onclick=()=>{S={c:$("sC").value,m:$("sM").value,n:$("sN").value};save("aql_cfg2",S);showCfg();dlg.close()};
+$("df").onclick=()=>{S={...DEF};save("aql_cfg2",S);fillS();showCfg()};
+showCfg();rh();
+</script></body></html>
