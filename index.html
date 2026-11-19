@@ -56,7 +56,7 @@ dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);co
 <div class="row noprint" style="margin-top:12px"><button class="p" id="save">Simpan ke History</button><button id="pdf">Export PDF</button><button id="xls">Export Excel</button></div>
 </section>
 <section class="card noprint"><h2>History</h2><div class="wrap"><table><thead><tr><th>Waktu</th><th>Qty</th><th>Kode</th><th>Sample</th><th>Critical</th><th>Major</th><th>Minor</th><th>Status</th></tr></thead><tbody id="hb"></tbody></table></div>
-<div style="margin-top:10px"><button id="hc">Hapus History</button></div></section>
+<div class="note" id="hn">Riwayat tersimpan di server dan diperbarui otomatis tiap 15 detik.</div></section>
 </main>
 <dialog id="dlg"><h2>Pengaturan AQL</h2>
 <div id="pinBox"><label>PIN Admin</label><input id="pin" type="password" inputmode="numeric"><div class="err" id="pe"></div>
@@ -76,7 +76,7 @@ const AQLS=Object.keys(ZERO).sort((a,b)=>a-b),DEF={c:"0.0",m:"1.0",n:"2.5"};
 const $=id=>document.getElementById(id),fmt=n=>n.toLocaleString("id-ID");
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-let S=load("aql_cfg2",DEF),H=load("aql_hist2",[]),cur=null;
+let S=load("aql_cfg2",DEF),H=[],cur=null;
 if(!(S.c==="0.0"||ZERO[S.c]!==undefined)||ZERO[S.m]===undefined||ZERO[S.n]===undefined)S={...DEF};
 function showCfg(){$("cC").textContent=S.c;$("cM").textContent=S.m;$("cN").textContent=S.n}
 function calc(q){const t=T1.find(r=>q>=r[0]&&q<=r[1]),code=t[2],ci=LET.indexOf(code);
@@ -107,9 +107,20 @@ $("calc").onclick=()=>{const v=$("qty").value.trim();$("err").textContent="";
  cur=calc(q);render()};
 $("reset").onclick=()=>{$("qty").value="";$("err").textContent="";$("out").classList.add("hide");cur=null};
 $("qty").onkeydown=e=>{if(e.key==="Enter")$("calc").click()};
+const SB_URL="https://vhaprwgrxmoaoezllksc.supabase.co"; // GANTI dengan Project URL Supabase kamu
+const SB_KEY="sb_publishable_EGzBc9Uw0PaPurZyHm1zqw_kZbFwN_h";
+const HDR={apikey:SB_KEY,"Content-Type":"application/json"};
+async function loadHist(){
+ try{const r=await fetch(SB_URL+"/rest/v1/aql_history?select=*&order=created_at.desc&limit=100",{headers:HDR});
+  if(!r.ok)throw 0;
+  H=(await r.json()).map(x=>({t:new Date(x.created_at).toLocaleString("id-ID"),q:x.qty,code:x.code,n:x.sample,s:x.status,r:x.results||[]}));rh()}
+ catch(e){$("hb").innerHTML='<tr><td colspan="8" style="color:var(--bad)">Gagal memuat history. Periksa Project URL dan koneksi internet.</td></tr>'}}
 function rh(){$("hb").innerHTML=H.length?H.map(h=>`<tr><td>${h.t}</td><td>${fmt(h.q)}</td><td>${h.code}</td><td>${h.n}</td>${h.r.map(x=>`<td>${x}</td>`).join("")}<td><span class="st ${h.s==="PASS"?"ok":h.s==="FAIL"?"bad":""}">${h.s||"-"}</span></td></tr>`).join(""):`<tr><td colspan="8" style="color:var(--mut)">Belum ada riwayat.</td></tr>`}
-$("save").onclick=()=>{if(!cur)return;H.unshift({t:new Date().toLocaleString("id-ID"),q:cur.q,code:cur.code,n:cur.n,s:cur.status,r:cur.rows.map(r=>`${r.v??"-"} (${r.ac}/${r.re})`)});H=H.slice(0,100);save("aql_hist2",H);rh()};
-$("hc").onclick=()=>{H=[];save("aql_hist2",H);rh()};
+$("save").onclick=async()=>{if(!cur)return;const b=$("save");b.disabled=true;
+ const body={qty:cur.q,code:cur.code,sample:cur.n,status:cur.status||"",results:cur.rows.map(r=>`${r.v??"-"} (${r.ac}/${r.re})`)};
+ try{const r=await fetch(SB_URL+"/rest/v1/aql_history",{method:"POST",headers:{...HDR,Prefer:"return=minimal"},body:JSON.stringify(body)});
+  if(!r.ok)throw 0;await loadHist()}catch(e){alert("Gagal menyimpan ke server. Periksa koneksi internet.")}
+ b.disabled=false};
 $("pdf").onclick=()=>{try{window.print()}catch(e){alert("Gunakan Ctrl/Cmd+P.")}};
 $("xls").onclick=()=>{if(!cur||typeof XLSX==="undefined"){alert("Data kosong atau library Excel gagal dimuat.");return}
  const a=[["AQL Inspection Calculator"],["Tanggal",new Date().toLocaleString("id-ID")],["Standar","ISO 2859-1"],["Level","General II"],["Tipe","Normal / Single Sampling"],["Incoming Qty",cur.q],["Lot Size Range",cur.rng],["Code Letter",cur.code],["Sample Quantity",cur.n],[],["Kategori","AQL","Sample","Ac","Re","Aktual Defect","Status"],...cur.rows.map(r=>[r.c,r.a,r.n,r.ac,r.re,r.v??"",r.v===undefined?"":(r.v<=r.ac?"PASS":"FAIL")]),[],["Status Akhir",cur.status||"Belum lengkap"]];
@@ -122,5 +133,5 @@ $("pok").onclick=()=>{if($("pin").value==="1234"){$("pinBox").classList.add("hid
 document.querySelectorAll(".x").forEach(b=>b.onclick=()=>dlg.close());
 $("sv").onclick=()=>{S={c:$("sC").value,m:$("sM").value,n:$("sN").value};save("aql_cfg2",S);showCfg();dlg.close()};
 $("df").onclick=()=>{S={...DEF};save("aql_cfg2",S);fillS();showCfg()};
-showCfg();rh();
+showCfg();rh();loadHist();setInterval(loadHist,15000);
 </script></body></html>
